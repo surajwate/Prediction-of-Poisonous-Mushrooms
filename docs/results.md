@@ -2,7 +2,7 @@
 
 ## Script base_logreg
 
-### Run 1: Baseline
+### Run 1: Baseline Logistic Regression
 
 - Filled missing values of numerical features with median and categorical features with mode.
 - Replaced the individual values of the categorical features which have high unique values.
@@ -81,3 +81,22 @@ Fold=4, Accuracy=0.8332678311616022
 ```
 
 **Observation**: The performance has improved little bit. I think this is the best result we can get with this setup. To improve it further, we need to try different models or make some major changes in the preprocessing.
+
+## Script base_rf
+
+- In this script, I have used RandomForestClassifier with the default parameters.
+
+### Run 1: Baseline RandomForest
+
+```bash
+Fold=0, MCC=0.9834076966806502
+Fold=0, Accuracy=0.9917739966537747
+Fold=1, MCC=0.9829475532780092
+Fold=1, Accuracy=0.991546209509632
+Fold=2, MCC=0.9825124152774455
+Fold=2, Accuracy=0.9913296513092146
+Fold=3, MCC=0.9834628957070806
+Fold=3, Accuracy=0.9918012669456792
+Fold=4, MCC=0.9835807225984636
+Fold=4, Accuracy=0.9918606199339417
+```
