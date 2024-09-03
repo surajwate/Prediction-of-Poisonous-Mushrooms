@@ -1,4 +1,4 @@
-# This script trains a Random Forest model using GridSearchCV to find the best hyperparameters
+# Random Forest with Target Encoding
 import pandas as pd
 import numpy as np
 from sklearn.impute import SimpleImputer
@@ -8,15 +8,13 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import matthews_corrcoef, accuracy_score
 from analyze import missing_values
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import matthews_corrcoef, make_scorer
-from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
-import time
+from sklearn.metrics import matthews_corrcoef
+from category_encoders import TargetEncoder
 
 
 def run(fold):
     # Load the training data with folds
     df = pd.read_csv("./input/train_folds.csv")
-    df = df.sample(n=30000, random_state=42)
 
     # drop the columns with higher than 40% missing values
     missing_values_summary = missing_values(df)
@@ -53,81 +51,37 @@ def run(fold):
     X_train = replacer.fit_transform(X_train)
     X_valid = replacer.transform(X_valid)
 
-    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
-    X_train_encoded = encoder.fit_transform(X_train[cat_cols])
-    X_valid_encoded = encoder.transform(X_valid[cat_cols])
+    # Target encoding
+    # Map the target values to numbers
+    target_mapping = {"p": 0, "e": 1}
+    y_train_num = y_train.map(target_mapping)
 
-    # Create a DataFrame with the encoded columns
-    X_train_encoded = pd.DataFrame(X_train_encoded, columns=encoder.get_feature_names_out(cat_cols))
-    X_valid_encoded = pd.DataFrame(X_valid_encoded, columns=encoder.get_feature_names_out(cat_cols))
+    # Create an instance of the TargetEncoder
+    encoder = TargetEncoder(cols=cat_cols)
 
-    # Drop the original categorical columns from the training and validation sets
-    X_train = X_train.drop(cat_cols, axis=1)
-    X_valid = X_valid.drop(cat_cols, axis=1)
-
-    # Concatenate the numerical and encoded categorical columns
-    X_train = pd.concat([X_train, X_train_encoded], axis=1)
-    X_valid = pd.concat([X_valid, X_valid_encoded], axis=1)
+    # Fit the encoder on the training data and transform the training and validation data
+    X_train = encoder.fit_transform(X_train, y_train_num)
+    X_valid = encoder.transform(X_valid)
 
     # Scale the numerical columns using the StandardScaler
     scaler = StandardScaler()
     X_train[num_cols] = scaler.fit_transform(X_train[num_cols])
     X_valid[num_cols] = scaler.transform(X_valid[num_cols])
 
-    # Start the timer
-    start_time = time.time()
-
     # Train a Random Forest model
     model = RandomForestClassifier(n_jobs=-1)
-
-    param_grid = {
-    'n_estimators': [550, 600, 650],
-    'max_depth': [55, 60, 65],
-    'min_samples_split': [4, 5, 6],
-    'min_samples_leaf': [1, 2],
-    'max_features': ['log2'],
-    'bootstrap': [True],
-    'criterion': ['entropy'],
-    'max_samples': [0.85, 0.9, 0.95]
-    }
-
-    # Use make_scorer to create a scorer for the Matthews correlation coefficient
-    mcc_scorer = make_scorer(matthews_corrcoef)
-
-    # Initialize GridSearchCV
-    grid_search = GridSearchCV(
-        estimator=model,
-        param_grid=param_grid,
-        scoring=mcc_scorer,  # Using MCC as the metric for scoring
-        cv=5,
-        verbose=2,
-        n_jobs=-1
-    )
-
-
-    grid_search.fit(X_train, y_train)
-
-    best_model = grid_search.best_estimator_
-
-    y_pred = best_model.predict(X_valid)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_valid)
 
     # Calculate the Matthews correlation coefficient
     mcc = matthews_corrcoef(y_valid, y_pred)
     print(f"Fold={fold}, MCC={mcc}")
-    print(f"Best parameters found: {grid_search.best_params_}")
-    print(f"Best MCC score: {grid_search.best_score_}")
 
-    # End the timer
-    end_time = time.time()
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-
-    print(f"Model building took {elapsed_time:.2f} seconds")
+    # Calculate the accuracy
+    print(f"Fold={fold}, Accuracy={accuracy_score(y_valid, y_pred)}")
 
 
 if __name__ == "__main__":
-    # for fold_ in range(5):
-    #     run(fold_)
-    run(0)
-
+    for fold_ in range(5):
+        run(fold_)
+    # run(0)

@@ -1,4 +1,4 @@
-# This script trains a Random Forest model using GridSearchCV to find the best hyperparameters
+# This script trains a Random Forest model on the training data with 5-fold cross-validation
 import pandas as pd
 import numpy as np
 from sklearn.impute import SimpleImputer
@@ -8,15 +8,13 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import matthews_corrcoef, accuracy_score
 from analyze import missing_values
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import matthews_corrcoef, make_scorer
-from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
-import time
+from sklearn.metrics import matthews_corrcoef
 
 
 def run(fold):
     # Load the training data with folds
     df = pd.read_csv("./input/train_folds.csv")
-    df = df.sample(n=30000, random_state=42)
+    df = df.sample(frac=0.1, random_state=0)
 
     # drop the columns with higher than 40% missing values
     missing_values_summary = missing_values(df)
@@ -35,6 +33,34 @@ def run(fold):
     y_train = train["class"]
     y_valid = valid["class"]
 
+    cat_cols =X_train.select_dtypes(include='object').columns
+
+    replacer = RareCategoryReplacer(columns=cat_cols, proportion_threshold=0.01)
+    X_train = replacer.fit_transform(X_train)
+    X_valid = replacer.transform(X_valid)
+
+    # Feature Engineering
+    X_train['cap-surface_cap-shape'] = X_train['cap-surface'] + '_' + X_train['cap-shape']
+    X_train['gill-attachment_gill-color'] = X_train['gill-attachment'] + '_' + X_train['gill-color']
+    X_train['gill-spacing_gill-color'] = X_train['gill-spacing'] + '_' + X_train['gill-color']
+    X_train['gill-color_veil-color'] = X_train['gill-color'] + '_' + X_train['veil-color']
+    X_train['stem-root_stem-color'] = X_train['stem-root'] + '_' + X_train['stem-color']
+    X_train['stem-surface_gill-color'] = X_train['stem-surface'] + '_' + X_train['gill-color']
+    X_train['veil-type_cap-shape'] = X_train['veil-type'] + '_' + X_train['cap-shape']
+    X_train['veil-color_gill-color'] = X_train['veil-color'] + '_' + X_train['gill-color']
+    X_train['spore-print-color_gill-color'] = X_train['spore-print-color'] + '_' + X_train['gill-color']
+
+
+    X_valid['cap-surface_cap-shape'] = X_valid['cap-surface'] + '_' + X_valid['cap-shape']
+    X_valid['gill-attachment_gill-color'] = X_valid['gill-attachment'] + '_' + X_valid['gill-color']
+    X_valid['gill-spacing_gill-color'] = X_valid['gill-spacing'] + '_' + X_valid['gill-color']
+    X_valid['gill-color_veil-color'] = X_valid['gill-color'] + '_' + X_valid['veil-color']
+    X_valid['stem-root_stem-color'] = X_valid['stem-root'] + '_' + X_valid['stem-color']
+    X_valid['stem-surface_gill-color'] = X_valid['stem-surface'] + '_' + X_valid['gill-color']
+    X_valid['veil-type_cap-shape'] = X_valid['veil-type'] + '_' + X_valid['cap-shape']
+    X_valid['veil-color_gill-color'] = X_valid['veil-color'] + '_' + X_valid['gill-color']
+    X_valid['spore-print-color_gill-color'] = X_valid['spore-print-color'] + '_' + X_valid['gill-color']
+
     # Get the categorical and numerical columns
     cat_cols =X_train.select_dtypes(include='object').columns
     num_cols = X_train.select_dtypes(exclude='object').columns
@@ -49,9 +75,6 @@ def run(fold):
     X_train[cat_cols] = imputer.fit_transform(X_train[cat_cols])
     X_valid[cat_cols] = imputer.transform(X_valid[cat_cols])
 
-    replacer = RareCategoryReplacer(columns=cat_cols, proportion_threshold=0.01)
-    X_train = replacer.fit_transform(X_train)
-    X_valid = replacer.transform(X_valid)
 
     encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
     X_train_encoded = encoder.fit_transform(X_train[cat_cols])
@@ -74,60 +97,21 @@ def run(fold):
     X_train[num_cols] = scaler.fit_transform(X_train[num_cols])
     X_valid[num_cols] = scaler.transform(X_valid[num_cols])
 
-    # Start the timer
-    start_time = time.time()
-
     # Train a Random Forest model
     model = RandomForestClassifier(n_jobs=-1)
-
-    param_grid = {
-    'n_estimators': [550, 600, 650],
-    'max_depth': [55, 60, 65],
-    'min_samples_split': [4, 5, 6],
-    'min_samples_leaf': [1, 2],
-    'max_features': ['log2'],
-    'bootstrap': [True],
-    'criterion': ['entropy'],
-    'max_samples': [0.85, 0.9, 0.95]
-    }
-
-    # Use make_scorer to create a scorer for the Matthews correlation coefficient
-    mcc_scorer = make_scorer(matthews_corrcoef)
-
-    # Initialize GridSearchCV
-    grid_search = GridSearchCV(
-        estimator=model,
-        param_grid=param_grid,
-        scoring=mcc_scorer,  # Using MCC as the metric for scoring
-        cv=5,
-        verbose=2,
-        n_jobs=-1
-    )
-
-
-    grid_search.fit(X_train, y_train)
-
-    best_model = grid_search.best_estimator_
-
-    y_pred = best_model.predict(X_valid)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_valid)
 
     # Calculate the Matthews correlation coefficient
     mcc = matthews_corrcoef(y_valid, y_pred)
     print(f"Fold={fold}, MCC={mcc}")
-    print(f"Best parameters found: {grid_search.best_params_}")
-    print(f"Best MCC score: {grid_search.best_score_}")
 
-    # End the timer
-    end_time = time.time()
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-
-    print(f"Model building took {elapsed_time:.2f} seconds")
+    # Calculate the accuracy
+    print(f"Fold={fold}, Accuracy={accuracy_score(y_valid, y_pred)}")
 
 
 if __name__ == "__main__":
-    # for fold_ in range(5):
-    #     run(fold_)
-    run(0)
+    for fold_ in range(5):
+        run(fold_)
+    # run(0)
 

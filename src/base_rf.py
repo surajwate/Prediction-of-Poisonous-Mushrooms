@@ -72,9 +72,7 @@ def run(fold):
     X_valid[num_cols] = scaler.transform(X_valid[num_cols])
 
     # Train a Random Forest model
-
-
-    model = RandomForestClassifier(n_jobs=-1)
+    model = RandomForestClassifier(n_jobs=-1, random_state=42)
     model.fit(X_train, y_train)
     y_pred = model.predict(X_valid)
 
@@ -83,10 +81,34 @@ def run(fold):
     print(f"Fold={fold}, MCC={mcc}")
 
     # Calculate the accuracy
-    print(f"Fold={fold}, Accuracy={accuracy_score(y_valid, y_pred)}")
+    # print(f"Fold={fold}, Accuracy={accuracy_score(y_valid, y_pred)}")
+
+    # Print the feature importances
+    feature_importances = model.feature_importances_
+    feature_names = X_train.columns
+
+    # Create a DataFrame to show feature importance scores along with feature names
+    importance_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Importance': feature_importances
+    })
+
+    # Sort the DataFrame by importance
+    importance_df = importance_df.sort_values(by='Importance', ascending=False)
+
+    print(importance_df)
+    # Format the Importance column to avoid scientific notation
+    importance_df['Importance'] = importance_df['Importance'].apply(lambda x: '{:.6f}'.format(x))
+    # Save the DataFrame to a CSV file
+    importance_df.to_csv('./output/feature_importances.csv', index=False)
+    # Save the DataFrame to an Excel file
+    importance_df.to_excel('./output/feature_importances.xlsx', index=False)
+
+
 
 
 if __name__ == "__main__":
-    for fold_ in range(5):
-        run(fold_)
+    # for fold_ in range(5):
+    #     run(fold_)
+    run(0)
 

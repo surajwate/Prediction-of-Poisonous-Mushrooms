@@ -85,6 +85,7 @@ Fold=4, Accuracy=0.8332678311616022
 ## Script base_rf
 
 - In this script, I have used RandomForestClassifier with the default parameters.
+- One-hot encoding is used for categorical features.
 
 ### Run 1: Baseline RandomForest
 
@@ -100,3 +101,24 @@ Fold=3, Accuracy=0.9918012669456792
 Fold=4, MCC=0.9835807225984636
 Fold=4, Accuracy=0.9918606199339417
 ```
+
+## Script rf_te
+
+- Random Forest with Target Encoding.
+
+### Run 1: RandomForest with Target Encoding
+
+```bash
+Fold=0, MCC=0.9831128406721257
+Fold=0, Accuracy=0.9916280203853453
+Fold=1, MCC=0.9824875603678336
+Fold=1, Accuracy=0.9913184223654893
+Fold=2, MCC=0.9820855005322922
+Fold=2, Accuracy=0.991117905513251
+Fold=3, MCC=0.9829867008660359
+Fold=3, Accuracy=0.9915654591274469
+Fold=4, MCC=0.9831856933700767
+Fold=4, Accuracy=0.9916649154861571
+```
+
+**Observation**: The performance is similar to the baseline RandomForest model. Target encoding has not improved the performance.
